@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Weather App</title>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,700' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" href="/static/css/WeatherList.css">
+    <link rel="stylesheet" href="/static/css/WeatherPage.css">
+</head>
+
+
+<body>
+<div class="topnav">
+    <button class="active" href="#home">Anasayfa</button>
+    <button id="saveButton">Kaydet!</button>
+    <a href="#weatherList">Kayıtlar</a>
+    <div class="search-container">
+        <form id="searchform">
+            <input id="searchinput" type="text" placeholder="Şehir.." required name="search">
+            <button type="submit"><i class="fa fa-search"></i></button>
+        </form>
+    </div>
+</div>
+<article class="widget">
+    <div class="weatherIcon"></div>
+    <div class="weatherData">
+        <h1 class="temperature">25&deg;</h1>
+        <h2 class="description">Partly Cloudy</h2>
+        <h3 class="city">İstanbul</h3>
+
+    </div>
+    <div class="date">
+        <h4 class="month" id="month"></h4>
+        <h5 class="day" id="day"></h5>
+    </div>
+</article>
+
+<section class="ftco-section" style="margin-top: 450px;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center mb-5">
+                <h2 class="heading-section text-white ">Kayıtlar</h2>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead class="thead-primary">
+                        <tr>
+                            <th>Ülke</th>
+                            <th>Şehir</th>
+                            <th>Sıcaklık °C</th>
+                            <th>Durum</th>
+                            <th>Tarih</th>
+                            <th>Sil</th>
+                        </tr>
+                        </thead>
+                        <tbody id="weatherList">
+
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script src="/static/js/jquery.min.js"></script>
+<script src="/static/js/popper.js"></script>
+<script src="/static/js/bootstrap.min.js"></script>
+<script src="/static/js/main.js"></script>
+
+<script>
+    let weather = {};
+    $(document).ready(function () {
+        document.getElementById("saveButton").disabled = true;
+        getAll();
+
+    });
+
+    function getWeatherFromApi() {
+        $(".weatherIcon").empty()
+        $.ajax({
+            url: "http://api.weatherapi.com/v1/current.json?key=d2b8783d530a480e8f4135521222406 &q=" + $("#searchinput").val().turkishtoEnglish() + "&aqi=yes&lang=tr",
+            success: function (data, status, xhr) {
+                document.getElementById("saveButton").disabled = false;
+                var dt = new Date(data.current.last_updated)
+                $(".city").text(data.location.name + "," + data.location.country)
+                $(".temperature").text(parseInt(data.current.temp_c) + "°")
+                $(".description").text(data.current.condition.text)
+                $(".weatherIcon").append("<img height='200' src='" + data.current.condition.icon + "'>")
+                $(".month").text(data.current.last_updated)
+
+                weather.description = data.current.condition.text;
+                weather.city = data.location.name;
+                weather.country = data.location.country;
+                weather.temperature = parseInt(data.current.temp_c);
+                weather.date = dt;
+            },
+            error: function (data, status, xhr) {
+                document.getElementById("saveButton").disabled = true;
+            }
+        });
+    }
+
+    $("#searchform").submit(function (event) {
+        event.preventDefault();
+        getWeatherFromApi()
+    });
+
+    $("#saveButton").click(function () {
+        json = JSON.stringify(weather);
+        $.ajax({
+            url: "/weather/save",
+            type: 'post',
+            contentType: "application/json; charset=utf-8",
+            data: json,
+            success: function (data, status, xhr) {
+                if (data) {
+                    document.getElementById("saveButton").disabled = true;
+                    alert("Kayıt Başarılı!");
+                    getAll();
+                } else {
+                    alert("Kayıt Başarısız!");
+                }
+            },
+            error: function (data, status, xhr) {
+            }
+        });
+    });
+
+    function getAll() {
+        $.ajax({
+            url: "/weather/getAll",
+            success: function (data, status, xhr) {
+                console.log(data);
+                $("#weatherList").empty();
+                data.map(weather =>
+                    $("#weatherList").append(
+                        "<tr>" +
+                        "<td>" + weather.country + "</td>" +
+                        "<td>" + weather.city + "</td>" +
+                        "<td>" + weather.temperature + "</td>" +
+                        "<td>" + weather.description + "</td>" +
+                        "<td>" + weather.date + "</td>" +
+                        " <td><button onclick='handleDelete("+ weather.id +")' class='btn btn-danger'>Sil</button></td>" +
+                        " </tr>"
+                    )
+                )
+            },
+            error: function (data, status, xhr) {
+            }
+        });
+    }
+
+    function handleDelete(id) {
+        $.ajax({
+            url: "/weather/delete?id=" + id,
+            success: function (data, status, xhr) {
+                console.log(data);
+                if (data) {
+                    alert("Silme Başarılı!");
+                    getAll();
+
+                } else {
+                    alert("Silme Başarısız!");
+                }
+            },
+            error: function (data, status, xhr) {
+            }
+        });
+    }
+
+    String.prototype.turkishtoEnglish = function () {
+        return this.replaceAll('Ğ','g')
+            .replaceAll('Ü','u')
+            .replaceAll('Ş','s')
+            .replaceAll('I','i')
+            .replaceAll('İ','i')
+            .replaceAll('Ö','o')
+            .replaceAll('Ç','c')
+            .replaceAll('ğ','g')
+            .replaceAll('ü','u')
+            .replaceAll('ş','s')
+            .replaceAll('ı','i')
+            .replaceAll('ö','o')
+            .replaceAll('ç','c');
+    };
+</script>
+</body>
+</html>
